@@ -1,6 +1,6 @@
 # 🏟️ Real Madrid Store App
 
-![Real Madrid](https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg)
+![Real Madrid]([https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg](https://timelinecovers.pro/facebook-cover/download/fc-real-madrid-facebook-cover.jpg))
 
 > An unofficial Real Madrid official store experience — built with Kotlin & Jetpack Compose 🤍
 
