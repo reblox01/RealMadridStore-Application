@@ -1,6 +1,14 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin") version "2.0.1" apply false
+}
+
+// Load local.properties for secrets
+val localProperties = java.util.Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 
 android {
@@ -15,23 +23,39 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Build config fields - read from local.properties or use defaults
+        buildConfigField("String", "OLLAMA_BASE_URL", "\"${localProperties.getProperty("OLLAMA_BASE_URL", "http://10.0.2.2:11434/")}\"")
+        buildConfigField("String", "BUILD_TYPE", "\"${project.findProperty("android.buildTypes.release.name") ?: "debug"}\"")
     }
 
     buildTypes {
+        debug {
+            isDebuggable = true
+            buildConfigField("String", "OLLAMA_BASE_URL", "\"http://10.0.2.2:11434/\"")
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // Release MUST use HTTPS
+            buildConfigField("String", "OLLAMA_BASE_URL", "\"${localProperties.getProperty("OLLAMA_BASE_URL") ?: "https://localhost:11434/"}\"")
+            
+            // Enable R8 full mode
+            (this as com.android.build.api.dsl.ApplicationBuildType).isCrunchPngs = true
         }
+    }
+    
+    buildFeatures {
+        buildConfig = true
+        compose = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-    buildFeatures {
-        compose = true
     }
 }
 
