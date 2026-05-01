@@ -8,6 +8,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.bousmah.realmadridstore_zayd.data.CartItem
+import com.bousmah.realmadridstore_zayd.data.FirebaseRepository
 import com.bousmah.realmadridstore_zayd.data.MockData
 import com.bousmah.realmadridstore_zayd.data.Product
 import kotlinx.coroutines.flow.*
@@ -16,11 +17,12 @@ import kotlinx.coroutines.launch
 private val Context.dataStore by preferencesDataStore(name = "wishlist_prefs")
 
 data class ShopUiState(
-    val products: List<Product> = MockData.products,
+    val products: List<Product> = emptyList(),
     val categories: List<String> = listOf("All", "Wishlist", "Jerseys", "Training", "Accessories", "Kids"),
     val selectedCategory: String = "All",
     val cartItems: List<CartItem> = emptyList(),
-    val wishlist: Set<String> = emptySet()
+    val wishlist: Set<String> = emptySet(),
+    val isLoading: Boolean = false
 ) {
     val cartItemCount: Int get() = cartItems.sumOf { it.quantity }
     val subtotal: Double get() = cartItems.sumOf { it.product.price * it.quantity }
@@ -31,17 +33,41 @@ data class ShopUiState(
 class ShopViewModel(application: Application) : AndroidViewModel(application) {
     private val dataStore = application.applicationContext.dataStore
     private val WISHLIST_KEY = stringSetPreferencesKey("wishlist_ids")
+    private val repository = FirebaseRepository()
 
     private val _uiState = MutableStateFlow(ShopUiState())
     val uiState: StateFlow<ShopUiState> = _uiState.asStateFlow()
 
+    private var allProducts: List<Product> = emptyList()
+
     init {
+        loadProducts()
+        loadWishlist()
+    }
+
+    private fun loadProducts() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            var products = repository.getAllProducts()
+            
+            if (products.isEmpty()) {
+                // First launch: Seed Firestore
+                repository.saveProducts(MockData.products)
+                products = repository.getAllProducts()
+            }
+            
+            allProducts = products
+            _uiState.update { it.copy(products = products, isLoading = false) }
+            applyFilter(_uiState.value.selectedCategory)
+        }
+    }
+
+    private fun loadWishlist() {
         viewModelScope.launch {
             dataStore.data.map { preferences ->
                 preferences[WISHLIST_KEY] ?: emptySet()
             }.collect { wishlist ->
                 _uiState.update { it.copy(wishlist = wishlist) }
-                // Re-apply filter to update the visible product list if needed
                 applyFilter(_uiState.value.selectedCategory)
             }
         }
@@ -53,9 +79,9 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun applyFilter(category: String) {
         val filteredProducts = when (category) {
-            "All" -> MockData.products
-            "Wishlist" -> MockData.products.filter { _uiState.value.wishlist.contains(it.id) }
-            else -> MockData.products.filter { it.category == category }
+            "All" -> allProducts
+            "Wishlist" -> allProducts.filter { _uiState.value.wishlist.contains(it.id) }
+            else -> allProducts.filter { it.category == category }
         }
         _uiState.update { it.copy(selectedCategory = category, products = filteredProducts) }
     }
