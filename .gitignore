@@ -12,4 +12,15 @@
 /captures
 .externalNativeBuild
 .cxx
+
+# Local properties
 local.properties
+*.jks
+*.keystore
+
+# Environment & secrets
+.env
+google-services.json
+
+# API Keys
+secrets.properties
